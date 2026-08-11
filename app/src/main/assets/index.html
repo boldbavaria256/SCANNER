@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <title>Document Scanner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Document Scanner</h1>
+        <p>Capture, crop, straighten and enhance documents on-device.</p>
+      </div>
+      <span id="cvState" class="status">Loading scanner…</span>
+    </header>
+
+    <section class="viewer">
+      <video id="camera" playsinline autoplay muted></video>
+      <canvas id="captureCanvas" hidden></canvas>
+      <canvas id="resultCanvas" hidden></canvas>
+      <div id="guide" class="guide" aria-hidden="true"></div>
+      <div id="emptyState" class="empty-state">Allow camera access to begin.</div>
+    </section>
+
+    <section class="controls">
+      <button id="startBtn" class="secondary">Start camera</button>
+      <button id="captureBtn" class="primary" disabled>Scan</button>
+      <button id="retakeBtn" class="secondary" hidden>Retake</button>
+      <button id="saveBtn" class="primary" hidden>Download PDF</button>
+    </section>
+
+    <section id="enhanceControls" class="enhance" hidden>
+      <label>
+        Output
+        <select id="modeSelect">
+          <option value="clean">Clean colour</option>
+          <option value="gray">Grayscale</option>
+          <option value="bw" selected>Document B&amp;W</option>
+        </select>
+      </label>
+      <label>
+        Cleanup strength
+        <input id="strengthRange" type="range" min="1" max="5" value="3" />
+      </label>
+      <button id="reprocessBtn" class="secondary">Reprocess</button>
+    </section>
+
+    <p id="message" class="message"></p>
+  </main>
+
+  <script>
+    // OpenCV.js calls this global function when its WASM runtime is ready.
+    window.Module = {
+      onRuntimeInitialized() {
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <!-- Bundled into the APK at build time. No CDN is used at runtime. -->
+  <script async src="opencv.js"></script>
+  <script src="scanner.js"></script>
+</body>
+</html>

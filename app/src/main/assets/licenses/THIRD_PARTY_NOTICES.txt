@@ -1,0 +1,7 @@
+OpenCV.js 4.13.0
+Project: OpenCV
+License: Apache License 2.0
+Source used by the build: https://docs.opencv.org/4.13.0/opencv.js
+
+The OpenCV.js file is downloaded at build time and packaged into the Android APK.
+The installed application does not load OpenCV from a CDN at runtime.

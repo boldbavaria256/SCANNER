@@ -1,0 +1,7 @@
+.gradle/
+.idea/
+local.properties
+*.iml
+**/build/
+# Downloaded automatically at build time and packaged into the APK.
+app/src/main/assets/opencv.js
