@@ -34,7 +34,6 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .topbar-title { color: var(--ink); font-size: 16px; }
 .icon-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 25px; cursor: pointer; }
 .icon-btn:active { background: #f0f4f3; }
-.crown-btn { color: #f2aa1a; font-size: 23px; }
 .confirm-icon { color: var(--teal); font-weight: 900; }
 .page-count-label { font-size: 13px; font-weight: 800; text-align: right; color: var(--teal); }
 
@@ -189,3 +188,10 @@ button:disabled { opacity:.45; pointer-events:none; }
 .document-guide { border:0; box-shadow:none; border-radius:0; }
 .auto-chip.disabled { opacity:.72; }
 .recent-pdf-icon { display:grid; place-items:center; background:#fff1f1; color:#d63a3a; font-size:10px; font-weight:900; border:1px solid #f2cccc; border-radius:6px; }
+
+/* Scanner brand system */
+.brand-lockup { display:flex; align-items:center; justify-content:center; gap:7px; color:var(--ink); }
+.brand-mark { width:27px; height:27px; color:var(--teal); stroke-width:1.9; flex:0 0 auto; }
+.brand-lockup span { font-size:18px; font-weight:850; letter-spacing:-.35px; }
+.info-btn { color:var(--teal-dark); }
+.info-btn svg { width:23px; height:23px; stroke-width:1.9; }

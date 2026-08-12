@@ -79,3 +79,13 @@ containing:
 - Camera startup is guarded against duplicate resume/permission races and waits for actual video metadata before declaring the camera ready.
 - The persistent “Starting camera…” overlay is fixed with an explicit hidden-state CSS rule.
 - API 27-only `windowLightNavigationBar` is moved to `values-v27/styles.xml`, preserving minSdk 26 lint compatibility.
+
+
+## Branding (v0.2.2)
+
+- Crown placeholder removed.
+- Teal document + scan-corner mark is used in the app header and Android launcher.
+- Adaptive and round launcher icons are included for API 26+.
+- Android 13+ monochrome themed icon is included.
+- Branded launch background is bundled locally.
+- Generated PDFs are not watermarked.
