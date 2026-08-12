@@ -4,8 +4,8 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
-        android:allowBackup="true"
-        android:label="Document Scanner"
+        android:allowBackup="false"
+        android:label="Scanner"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
         <activity
@@ -17,5 +17,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

@@ -3,64 +3,246 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111111" />
-  <title>Document Scanner</title>
+  <meta name="theme-color" content="#f7f9f8" />
+  <title>Scanner</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app">
-    <header>
-      <div>
-        <h1>Document Scanner</h1>
-        <p>Capture, crop, straighten and enhance documents on-device.</p>
-      </div>
-      <span id="cvState" class="status">Loading scanner…</span>
-    </header>
+  <main id="app" class="app-shell">
+    <section id="homeScreen" class="screen active" aria-label="Scanner home">
+      <header class="topbar home-topbar">
+        <button class="icon-btn" id="menuBtn" aria-label="Menu">
+          <span class="icon">☰</span>
+        </button>
+        <div class="brand">Scanner</div>
+        <button class="icon-btn crown-btn" id="proBtn" aria-label="Scanner information">♛</button>
+      </header>
 
-    <section class="viewer">
+      <div class="screen-scroll home-content">
+        <div class="welcome-block">
+          <h1>Welcome back!</h1>
+          <p>Scan anything. Save everything.</p>
+        </div>
+
+        <div class="action-stack">
+          <button class="action-card" id="singleScanBtn">
+            <span class="action-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2M7 8h10v8H7z"/></svg>
+            </span>
+            <span class="action-copy"><strong>Scan Single Page</strong><small>Scan a single document</small></span>
+            <span class="chevron">›</span>
+          </button>
+
+          <button class="action-card" id="multiScanBtn">
+            <span class="action-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10a2 2 0 0 1 2 2v12H8zM4 8h2v12h10v2H6a2 2 0 0 1-2-2zM11 8h6M11 12h6M11 16h4"/></svg>
+            </span>
+            <span class="action-copy"><strong>Scan Multiple Pages</strong><small>Scan pages into one document</small></span>
+            <span class="chevron">›</span>
+          </button>
+
+          <button class="action-card secondary-card" id="importBtn">
+            <span class="action-icon gallery-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM7 15l3-3 2 2 2-3 3 4M8.5 9.5h.01"/></svg>
+            </span>
+            <span class="action-copy"><strong>Import from Gallery</strong><small>Add an image from your gallery</small></span>
+            <span class="chevron">›</span>
+          </button>
+        </div>
+
+        <div class="section-heading">
+          <h2>Recent Scans</h2>
+          <button id="seeAllBtn" class="text-btn">See all</button>
+        </div>
+        <div id="recentList" class="recent-list"></div>
+      </div>
+    </section>
+
+    <section id="cameraScreen" class="screen camera-screen" aria-label="Camera scanner">
       <video id="camera" playsinline autoplay muted></video>
       <canvas id="captureCanvas" hidden></canvas>
+      <canvas id="analysisCanvas" hidden></canvas>
       <canvas id="resultCanvas" hidden></canvas>
-      <div id="guide" class="guide" aria-hidden="true"></div>
-      <div id="emptyState" class="empty-state">Allow camera access to begin.</div>
+      <canvas id="warpedCanvas" hidden></canvas>
+
+      <div class="camera-shade"></div>
+      <svg id="guide" class="document-guide" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <polygon id="guidePolygon" points="8,15 92,15 92,70 8,70"></polygon>
+      </svg>
+      <div id="cameraEmpty" class="camera-empty">Camera is starting…</div>
+
+      <div class="camera-topbar safe-top">
+        <button class="camera-icon-btn" id="closeCameraBtn" aria-label="Close camera">×</button>
+        <button class="auto-chip" id="autoBtn"><span>⚡</span> Auto</button>
+        <button class="camera-icon-btn" id="cameraSettingsBtn" aria-label="Camera settings">⚙</button>
+      </div>
+
+      <div class="camera-bottom safe-bottom">
+        <div id="cameraHint" class="camera-hint">Place the full page inside the frame</div>
+        <div class="capture-row">
+          <button class="round-tool" id="cameraGalleryBtn" aria-label="Import from gallery">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 15l3-3 2 2 2-3 3 4M8.5 9.5h.01"/></svg>
+          </button>
+          <button class="shutter" id="captureBtn" aria-label="Capture page" disabled><span></span></button>
+          <button class="round-tool" id="flashBtn" aria-label="Flash"><span id="flashGlyph">⚡</span><small id="flashLabel">A</small></button>
+        </div>
+        <div class="mode-switch" role="tablist" aria-label="Scan mode">
+          <button id="singleModeBtn" class="mode-option active" data-mode="single">Single</button>
+          <button id="multiModeBtn" class="mode-option" data-mode="multi">Multi-page</button>
+        </div>
+        <button id="finishMultiBtn" class="finish-multi" hidden>Review <span id="multiCount">0</span> pages</button>
+      </div>
     </section>
 
-    <section class="controls">
-      <button id="startBtn" class="secondary">Start camera</button>
-      <button id="captureBtn" class="primary" disabled>Scan</button>
-      <button id="retakeBtn" class="secondary" hidden>Retake</button>
-      <button id="saveBtn" class="primary" hidden>Download PDF</button>
+    <section id="editScreen" class="screen light-screen" aria-label="Crop and enhance">
+      <header class="topbar safe-top">
+        <button class="icon-btn" id="editBackBtn" aria-label="Back">←</button>
+        <div class="topbar-title">Crop &amp; Enhance</div>
+        <button class="icon-btn confirm-icon" id="editConfirmBtn" aria-label="Continue">✓</button>
+      </header>
+
+      <div class="edit-body">
+        <div id="editPreview" class="edit-preview">
+          <div class="paper-stage">
+            <canvas id="editCanvas"></canvas>
+            <div class="crop-frame" aria-hidden="true">
+              <span class="crop-handle top-left"></span><span class="crop-handle top-mid"></span><span class="crop-handle top-right"></span>
+              <span class="crop-handle mid-left"></span><span class="crop-handle mid-right"></span>
+              <span class="crop-handle bottom-left"></span><span class="crop-handle bottom-mid"></span><span class="crop-handle bottom-right"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-strip" id="filterStrip">
+          <button class="filter-card" data-filter="original"><span class="filter-thumb"><canvas id="filterOriginal"></canvas></span><small>Original</small></button>
+          <button class="filter-card active" data-filter="clean"><span class="filter-thumb"><canvas id="filterBright"></canvas></span><small>Bright</small></button>
+          <button class="filter-card" data-filter="gray"><span class="filter-thumb"><canvas id="filterGray"></canvas></span><small>Grayscale</small></button>
+          <button class="filter-card" data-filter="bw"><span class="filter-thumb"><canvas id="filterBw"></canvas></span><small>B&amp;W</small></button>
+        </div>
+
+        <div class="edit-tools">
+          <button class="tool-btn" id="rotateLeftBtn"><span>↶</span><small>Rotate Left</small></button>
+          <button class="tool-btn" id="rotateRightBtn"><span>↷</span><small>Rotate Right</small></button>
+          <button class="tool-btn" id="enhanceBtn"><span>✧</span><small>Enhance</small></button>
+        </div>
+      </div>
+
+      <div class="dual-actions safe-bottom">
+        <button class="outline-btn" id="retakeBtn">Retake</button>
+        <button class="primary-btn" id="continueBtn">Continue</button>
+      </div>
     </section>
 
-    <section id="enhanceControls" class="enhance" hidden>
-      <label>
-        Output
-        <select id="modeSelect">
-          <option value="clean">Clean colour</option>
-          <option value="gray">Grayscale</option>
-          <option value="bw" selected>Document B&amp;W</option>
-        </select>
-      </label>
-      <label>
-        Cleanup strength
-        <input id="strengthRange" type="range" min="1" max="5" value="3" />
-      </label>
-      <button id="reprocessBtn" class="secondary">Reprocess</button>
+    <section id="reviewScreen" class="screen light-screen" aria-label="Review pages">
+      <header class="topbar safe-top">
+        <button class="icon-btn" id="reviewBackBtn" aria-label="Back">←</button>
+        <div class="topbar-title">Review Pages</div>
+        <div class="page-count-label"><span id="reviewCount">0</span> pages</div>
+      </header>
+
+      <div class="screen-scroll review-content">
+        <div id="pageGrid" class="page-grid"></div>
+        <button class="add-page-card" id="addPageBtn"><span>＋</span> Add Page</button>
+      </div>
+
+      <div class="review-bottom safe-bottom">
+        <div class="review-tools">
+          <button class="tool-btn" id="reorderBtn"><span>⇄</span><small>Reorder</small></button>
+          <button class="tool-btn" id="deletePageBtn"><span>♙</span><small>Delete</small></button>
+          <button class="tool-btn" id="rotatePageBtn"><span>↻</span><small>Rotate</small></button>
+        </div>
+        <div id="reorderBar" class="reorder-bar" hidden>
+          <button id="moveEarlierBtn">← Move earlier</button><button id="moveLaterBtn">Move later →</button>
+        </div>
+        <button class="primary-btn full" id="createPdfBtn">Create PDF</button>
+      </div>
     </section>
 
-    <p id="message" class="message"></p>
+    <section id="exportScreen" class="screen light-screen" aria-label="Save or export PDF">
+      <header class="topbar safe-top">
+        <button class="icon-btn" id="exportBackBtn" aria-label="Back">←</button>
+        <div class="topbar-title">Save / Export</div>
+        <button class="icon-btn" id="homeBtn" aria-label="Home">⌂</button>
+      </header>
+
+      <div class="screen-scroll export-content">
+        <div class="pdf-card">
+          <div class="pdf-badge">PDF</div>
+          <img id="exportPreview" alt="Scanned document preview" />
+          <div class="success-badge">✓</div>
+        </div>
+
+        <div class="file-title-row">
+          <h2 id="filenameDisplay">Scanned Document.pdf</h2>
+          <button class="edit-name-btn" id="editNameBtn" aria-label="Rename">✎</button>
+        </div>
+        <div id="fileMeta" class="file-meta">1 page</div>
+        <div id="fileDate" class="file-meta"></div>
+
+        <div class="export-actions">
+          <button class="export-card" id="saveDeviceBtn">
+            <span class="export-icon">▣</span>
+            <span><strong>Save to device</strong><small>Save PDF to your storage</small></span><span class="chevron">›</span>
+          </button>
+          <button class="export-card" id="shareBtn">
+            <span class="export-icon">⌯</span>
+            <span><strong>Share</strong><small>Share PDF via apps</small></span><span class="chevron">›</span>
+          </button>
+          <button class="export-card" id="renameBtn">
+            <span class="export-icon">✎</span>
+            <span><strong>Rename</strong><small>Rename your file</small></span><span class="chevron">›</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div id="renameModal" class="modal" hidden>
+      <div class="modal-card">
+        <h3>Rename PDF</h3>
+        <input id="filenameInput" type="text" maxlength="80" autocomplete="off" />
+        <div class="modal-actions"><button id="cancelRenameBtn" class="outline-btn">Cancel</button><button id="applyRenameBtn" class="primary-btn">Save</button></div>
+      </div>
+    </div>
+
+    <div id="settingsModal" class="modal" hidden>
+      <div class="modal-card settings-card">
+        <h3>Scanner Settings</h3>
+        <label class="setting-row"><span><strong>Auto capture</strong><small>Capture automatically when the page is stable and sharp.</small></span><input id="autoCaptureToggle" type="checkbox" checked /></label>
+        <div class="setting-row static"><span><strong>Offline processing</strong><small>Images are processed on this device and are not uploaded.</small></span><span class="privacy-badge">ON</span></div>
+        <button id="clearHistoryBtn" class="outline-btn full-width">Clear recent scan history</button>
+        <button id="closeSettingsBtn" class="primary-btn full-width">Done</button>
+      </div>
+    </div>
+
+    <div id="infoModal" class="modal" hidden>
+      <div class="modal-card">
+        <h3>Scanner</h3>
+        <p class="modal-copy">Fast, private document scanning with on-device edge detection, perspective correction, enhancement and PDF creation.</p>
+        <p class="modal-copy"><strong>Offline by design.</strong> The scanner does not require an internet connection after installation.</p>
+        <button id="closeInfoBtn" class="primary-btn full-width">Done</button>
+      </div>
+    </div>
+
+    <div id="discardModal" class="modal" hidden>
+      <div class="modal-card">
+        <h3>Discard this scan?</h3>
+        <p class="modal-copy">The pages in the current unsaved document will be removed.</p>
+        <div class="modal-actions"><button id="keepScanBtn" class="outline-btn">Keep scanning</button><button id="discardScanBtn" class="danger-btn">Discard</button></div>
+      </div>
+    </div>
+
+    <input id="filePicker" type="file" accept="image/*" hidden />
   </main>
 
   <script>
-    // OpenCV.js calls this global function when its WASM runtime is ready.
     window.Module = {
-      onRuntimeInitialized() {
-        window.dispatchEvent(new Event('opencv-ready'));
-      }
+      onRuntimeInitialized() { window.dispatchEvent(new Event('opencv-ready')); }
     };
   </script>
-  <!-- Bundled into the APK at build time. No CDN is used at runtime. -->
   <script async src="opencv.js"></script>
+  <script src="scanner-core.js"></script>
   <script src="scanner.js"></script>
 </body>
 </html>
