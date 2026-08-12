@@ -67,4 +67,15 @@ containing:
 
 ## Current version
 
-`0.2.0` (`versionCode 2`)
+`0.2.1` (`versionCode 3`)
+
+
+## v0.2.1 scanner fixes
+
+- Capture now uses the exact sensor crop visible in the full-screen camera preview. The exported scan can no longer include off-screen sensor content that the user never saw.
+- Live document analysis uses that same visible crop, so boundary detection and capture operate on identical pixels.
+- Document candidates are ranked by geometry plus page appearance rather than size alone; near-frame backing sheets are penalized and cleaner nested page candidates are favored.
+- Live detection now darkens the area outside the detected page to visually isolate the document.
+- Camera startup is guarded against duplicate resume/permission races and waits for actual video metadata before declaring the camera ready.
+- The persistent “Starting camera…” overlay is fixed with an explicit hidden-state CSS rule.
+- API 27-only `windowLightNavigationBar` is moved to `values-v27/styles.xml`, preserving minSdk 26 lint compatibility.

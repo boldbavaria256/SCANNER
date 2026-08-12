@@ -56,3 +56,19 @@ test('PDF writer produces a structurally valid multi-page PDF header/trailer', a
   assert.ok(text.includes('/Count 2'));
   assert.ok(text.includes('%%EOF'));
 });
+
+test('cover crop matches the exact portion of the sensor visible in an object-fit cover preview', () => {
+  const crop = Core.coverCrop(4000, 3000, 1080, 2400);
+  assert.equal(Math.round(crop.height), 3000);
+  assert.equal(Math.round(crop.width), 1350);
+  assert.equal(Math.round(crop.x), 1325);
+  assert.equal(Math.round(crop.y), 0);
+  assert.ok(Math.abs((crop.width / crop.height) - (1080 / 2400)) < 1e-9);
+});
+
+test('quad scoring penalizes frame-sized backing surfaces relative to an inset page', () => {
+  const page = Core.scoreQuad([{x:100,y:120},{x:900,y:120},{x:900,y:1280},{x:100,y:1280}], 1000, 1400);
+  const frame = Core.scoreQuad([{x:3,y:3},{x:997,y:3},{x:997,y:1397},{x:3,y:1397}], 1000, 1400);
+  assert.ok(page.score > frame.score, `expected inset page ${page.score} > frame ${frame.score}`);
+  assert.ok(frame.marginScore < page.marginScore);
+});

@@ -15,12 +15,14 @@ const filePicker = $('filePicker');
 const toast = $('toast');
 const guide = $('guide');
 const guidePolygon = $('guidePolygon');
+const guideMaskPath = $('guideMaskPath');
+const cameraEmpty = $('cameraEmpty');
 
 const MAX_CAPTURE_SIDE = 4800;
 const MAX_MASTER_SIDE = 3200;
 const ANALYSIS_SIDE = 640;
-const ANALYSIS_INTERVAL_MS = 320;
-const STABLE_FRAMES_FOR_CAPTURE = 5;
+const ANALYSIS_INTERVAL_MS = 240;
+const STABLE_FRAMES_FOR_CAPTURE = 4;
 
 let stream = null;
 let cvReady = false;
@@ -42,6 +44,10 @@ let lastCaptureQuality = null;
 let autoCaptureEnabled = true;
 let cropRect = { left: 0, top: 0, right: 1, bottom: 1 };
 let pendingDiscardAction = null;
+let cameraStartPromise = null;
+let cameraGeneration = 0;
+let lastLiveNormalizedQuad = null;
+let lastCaptureNormalizedQuad = null;
 
 const state = Core.createInitialState();
 
@@ -67,6 +73,7 @@ function resetDocument() {
   state.sessionStartedAt = Date.now();
   lastCapture = null;
   lastCaptureQuality = null;
+  lastCaptureNormalizedQuad = null;
   activeFilter = 'clean';
   editRotation = 0;
   reorderMode = false;
@@ -75,7 +82,8 @@ function resetDocument() {
 
 function markCvReady() {
   cvReady = true;
-  if ($('cameraHint') && stream) $('cameraHint').textContent = 'Place the full page inside the frame';
+  if ($('cameraHint') && stream) $('cameraHint').textContent = 'Finding page…';
+  if (stream && currentScreenId === 'cameraScreen') startLiveAnalysis();
 }
 window.addEventListener('opencv-ready', markCvReady);
 if (window.cv && window.cv.Mat) markCvReady();
@@ -108,41 +116,107 @@ async function enterCameraForAdditionalPage() {
   await startCamera();
 }
 
+function setCameraLoading(message, visible) {
+  if (!cameraEmpty) return;
+  cameraEmpty.textContent = message || '';
+  cameraEmpty.hidden = !visible;
+}
+
+function waitForCameraReady(video, timeoutMs = 4500) {
+  if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (error) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      video.removeEventListener('loadedmetadata', check);
+      video.removeEventListener('canplay', check);
+      video.removeEventListener('playing', check);
+      if (error) reject(error); else resolve();
+    };
+    const check = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) finish();
+    };
+    const timer = setTimeout(() => finish(new Error('Camera did not become ready in time.')), timeoutMs);
+    video.addEventListener('loadedmetadata', check);
+    video.addEventListener('canplay', check);
+    video.addEventListener('playing', check);
+  });
+}
+
+function getVisibleVideoCrop() {
+  const vw = camera.videoWidth;
+  const vh = camera.videoHeight;
+  const rect = camera.getBoundingClientRect();
+  if (!vw || !vh || !rect.width || !rect.height) return null;
+  return Core.coverCrop(vw, vh, rect.width, rect.height);
+}
+
 async function startCamera() {
-  stopCamera();
+  if (currentScreenId !== 'cameraScreen') return;
+  if (stream && camera.videoWidth > 0 && camera.videoHeight > 0 && camera.readyState >= 2) {
+    setCameraLoading('', false);
+    $('captureBtn').disabled = false;
+    if (cvReady) startLiveAnalysis();
+    return;
+  }
+  if (cameraStartPromise) return cameraStartPromise;
+
+  const generation = ++cameraGeneration;
   resetGuide();
   stableFrames = 0;
   lastLiveQuad = null;
-  try {
-    $('cameraEmpty').hidden = false;
-    $('cameraEmpty').textContent = 'Camera is starting…';
-    $('captureBtn').disabled = true;
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 3840 },
-        height: { ideal: 2160 }
-      },
-      audio: false
-    });
-    camera.srcObject = stream;
-    await camera.play();
-    $('cameraEmpty').hidden = true;
-    $('captureBtn').disabled = false;
-    torchEnabled = false;
-    updateFlashUi();
-    updateAutoUi();
-    $('cameraHint').textContent = cvReady ? 'Finding document…' : 'Preparing document detection…';
-    startLiveAnalysis();
-  } catch (err) {
-    $('cameraEmpty').hidden = false;
-    $('cameraEmpty').textContent = 'Camera unavailable';
-    $('captureBtn').disabled = true;
-    showToast(`Camera unavailable: ${err.message || 'permission denied'}`, 3400);
-  }
+  lastLiveNormalizedQuad = null;
+  setCameraLoading('Starting camera…', true);
+  $('captureBtn').disabled = true;
+
+  cameraStartPromise = (async () => {
+    let newStream = null;
+    try {
+      newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 2560 },
+          height: { ideal: 1440 }
+        },
+        audio: false
+      });
+      if (generation !== cameraGeneration || currentScreenId !== 'cameraScreen') {
+        newStream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      stream = newStream;
+      camera.srcObject = stream;
+      await camera.play();
+      await waitForCameraReady(camera);
+      if (generation !== cameraGeneration || currentScreenId !== 'cameraScreen') return;
+
+      setCameraLoading('', false);
+      $('captureBtn').disabled = false;
+      torchEnabled = false;
+      updateFlashUi();
+      updateAutoUi();
+      $('cameraHint').textContent = cvReady ? 'Finding page…' : 'Preparing scanner…';
+      if (cvReady) startLiveAnalysis();
+    } catch (err) {
+      if (newStream && newStream !== stream) newStream.getTracks().forEach(track => track.stop());
+      if (generation !== cameraGeneration) return;
+      setCameraLoading('Camera unavailable', true);
+      $('captureBtn').disabled = true;
+      showToast(`Camera unavailable: ${err.message || 'permission denied'}`, 3400);
+    }
+  })().finally(() => {
+    if (generation === cameraGeneration) cameraStartPromise = null;
+  });
+
+  return cameraStartPromise;
 }
 
 function stopCamera() {
+  cameraGeneration++;
+  cameraStartPromise = null;
   stopLiveAnalysis();
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
@@ -150,6 +224,8 @@ function stopCamera() {
   }
   camera.srcObject = null;
   torchEnabled = false;
+  lastLiveQuad = null;
+  lastLiveNormalizedQuad = null;
   updateFlashUi();
 }
 
@@ -167,25 +243,35 @@ function stopLiveAnalysis() {
 
 function resetGuide() {
   guide.classList.remove('detected', 'good', 'warning');
-  guidePolygon.setAttribute('points', '8,15 92,15 92,70 8,70');
+  guidePolygon.setAttribute('points', '8,18 92,18 92,72 8,72');
+  if (guideMaskPath) guideMaskPath.setAttribute('d', 'M0 0H100V100H0Z');
+}
+
+function normalizeQuad(quad, sourceW, sourceH) {
+  const p = Core.orderPoints(quad);
+  return [p.tl, p.tr, p.br, p.bl].map(point => ({
+    x: Math.max(0, Math.min(1, point.x / sourceW)),
+    y: Math.max(0, Math.min(1, point.y / sourceH))
+  }));
+}
+
+function denormalizeQuad(points, width, height) {
+  if (!Array.isArray(points) || points.length !== 4) return null;
+  return points.map(point => ({ x: point.x * width, y: point.y * height }));
 }
 
 function updateGuideFromQuad(quad, sourceW, sourceH, status = 'detected') {
   if (!quad || !sourceW || !sourceH) return resetGuide();
-  const rect = camera.getBoundingClientRect();
-  if (!rect.width || !rect.height) return;
-  const scale = Math.max(rect.width / sourceW, rect.height / sourceH);
-  const renderedW = sourceW * scale;
-  const renderedH = sourceH * scale;
-  const cropX = (renderedW - rect.width) / 2;
-  const cropY = (renderedH - rect.height) / 2;
   const points = Core.orderPoints(quad);
-  const ordered = [points.tl, points.tr, points.br, points.bl].map(p => {
-    const x = Math.max(0, Math.min(100, ((p.x * scale - cropX) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((p.y * scale - cropY) / rect.height) * 100));
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  });
-  guidePolygon.setAttribute('points', ordered.join(' '));
+  const ordered = [points.tl, points.tr, points.br, points.bl].map(p => ({
+    x: Math.max(0, Math.min(100, p.x / sourceW * 100)),
+    y: Math.max(0, Math.min(100, p.y / sourceH * 100))
+  }));
+  guidePolygon.setAttribute('points', ordered.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
+  if (guideMaskPath) {
+    const cutout = ordered.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ') + ' Z';
+    guideMaskPath.setAttribute('d', `M0 0H100V100H0Z ${cutout}`);
+  }
   guide.classList.add('detected');
   guide.classList.toggle('good', status === 'good');
   guide.classList.toggle('warning', status === 'warning');
@@ -206,15 +292,18 @@ async function analyzeLiveFrame() {
   analysisRunning = true;
   let src = null;
   try {
-    const vw = camera.videoWidth;
-    const vh = camera.videoHeight;
-    if (!vw || !vh) return;
-    const scale = Math.min(1, ANALYSIS_SIDE / Math.max(vw, vh));
-    const w = Math.max(1, Math.round(vw * scale));
-    const h = Math.max(1, Math.round(vh * scale));
+    const crop = getVisibleVideoCrop();
+    if (!crop) return;
+    const scale = Math.min(1, ANALYSIS_SIDE / Math.max(crop.width, crop.height));
+    const w = Math.max(1, Math.round(crop.width * scale));
+    const h = Math.max(1, Math.round(crop.height * scale));
     analysisCanvas.width = w;
     analysisCanvas.height = h;
-    analysisCanvas.getContext('2d', { willReadFrequently: true }).drawImage(camera, 0, 0, w, h);
+    analysisCanvas.getContext('2d', { willReadFrequently: true }).drawImage(
+      camera,
+      crop.x, crop.y, crop.width, crop.height,
+      0, 0, w, h
+    );
     src = cv.imread(analysisCanvas);
     const detected = findDocumentQuad(src);
     const quality = measureQualityMat(src);
@@ -222,6 +311,7 @@ async function analyzeLiveFrame() {
     if (!detected) {
       stableFrames = 0;
       lastLiveQuad = null;
+      lastLiveNormalizedQuad = null;
       resetGuide();
       $('cameraHint').textContent = quality.decision.warnings[0] || 'Move closer and include all four corners';
       return;
@@ -230,6 +320,7 @@ async function analyzeLiveFrame() {
     const movement = quadDistance(detected.quad, lastLiveQuad, w, h);
     const stable = movement < 0.016;
     lastLiveQuad = detected.quad;
+    lastLiveNormalizedQuad = normalizeQuad(detected.quad, w, h);
     stableFrames = stable ? stableFrames + 1 : 1;
 
     const qualityGood = !quality.decision.blocking && quality.metrics.mean > 48 && detected.confidence >= 0.62;
@@ -265,17 +356,21 @@ async function analyzeLiveFrame() {
 }
 
 function captureFrame() {
-  const w = camera.videoWidth;
-  const h = camera.videoHeight;
-  if (!w || !h) throw new Error('Camera is not ready.');
-  const scale = Math.min(1, MAX_CAPTURE_SIDE / Math.max(w, h));
-  const outW = Math.max(1, Math.round(w * scale));
-  const outH = Math.max(1, Math.round(h * scale));
+  const crop = getVisibleVideoCrop();
+  if (!crop) throw new Error('Camera is not ready.');
+  const scale = Math.min(1, MAX_CAPTURE_SIDE / Math.max(crop.width, crop.height));
+  const outW = Math.max(1, Math.round(crop.width * scale));
+  const outH = Math.max(1, Math.round(crop.height * scale));
   captureCanvas.width = outW;
   captureCanvas.height = outH;
   const ctx = captureCanvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(camera, 0, 0, outW, outH);
+  ctx.drawImage(
+    camera,
+    crop.x, crop.y, crop.width, crop.height,
+    0, 0, outW, outH
+  );
   lastCapture = ctx.getImageData(0, 0, outW, outH);
+  lastCaptureNormalizedQuad = lastLiveNormalizedQuad ? lastLiveNormalizedQuad.map(p => ({ ...p })) : null;
 }
 
 async function performCapture(source = 'manual') {
@@ -299,8 +394,76 @@ async function performCapture(source = 'manual') {
   }
 }
 
+function clamp01(value) { return Math.max(0, Math.min(1, value)); }
+
+function pointInPolygon(point, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i];
+    const b = polygon[j];
+    const crosses = ((a.y > point.y) !== (b.y > point.y)) &&
+      (point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) || 1e-6) + a.x);
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function quadCentroid(points) {
+  return {
+    x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+    y: points.reduce((sum, p) => sum + p.y, 0) / points.length
+  };
+}
+
+function candidateAppearanceScore(gray, points) {
+  const p = Core.orderPoints(points);
+  const topW = Math.hypot(p.tr.x - p.tl.x, p.tr.y - p.tl.y);
+  const bottomW = Math.hypot(p.br.x - p.bl.x, p.br.y - p.bl.y);
+  const leftH = Math.hypot(p.bl.x - p.tl.x, p.bl.y - p.tl.y);
+  const rightH = Math.hypot(p.br.x - p.tr.x, p.br.y - p.tr.y);
+  const rawW = Math.max(20, (topW + bottomW) / 2);
+  const rawH = Math.max(20, (leftH + rightH) / 2);
+  const scale = Math.min(1, 220 / Math.max(rawW, rawH));
+  const w = Math.max(48, Math.round(rawW * scale));
+  const h = Math.max(48, Math.round(rawH * scale));
+  const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [p.tl.x,p.tl.y,p.tr.x,p.tr.y,p.br.x,p.br.y,p.bl.x,p.bl.y]);
+  const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0,0,w-1,0,w-1,h-1,0,h-1]);
+  const matrix = cv.getPerspectiveTransform(srcPts, dstPts);
+  const warped = new cv.Mat();
+  const background = new cv.Mat();
+  const fineBlur = new cv.Mat();
+  const edge = new cv.Mat();
+  try {
+    cv.warpPerspective(gray, warped, matrix, new cv.Size(w, h), cv.INTER_AREA, cv.BORDER_REPLICATE);
+    const sigma = Math.max(5, Math.min(13, Math.max(w, h) * 0.045));
+    cv.GaussianBlur(warped, background, new cv.Size(0, 0), sigma, sigma, cv.BORDER_REPLICATE);
+    cv.GaussianBlur(warped, fineBlur, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
+    cv.Canny(fineBlur, edge, 45, 135);
+
+    const metrics = Core.analyzeGrayPixels(warped.data, w, h);
+    const backgroundMetrics = Core.analyzeGrayPixels(background.data, w, h);
+    const edgeDensity = cv.countNonZero(edge) / Math.max(1, w * h);
+
+    // A page generally has a slowly-varying paper background with smaller high-frequency
+    // structures (text, signatures, tables) on top. A folder/desk containing another page
+    // has much larger low-frequency background variation and scores lower here.
+    const uniformity = clamp01(1 - Math.max(0, backgroundMetrics.stddev - 6) / 42);
+    const contrast = clamp01(((metrics.p95 - metrics.p05) - 24) / 115);
+    const paperLevel = clamp01((metrics.p95 - 115) / 105);
+    let detail;
+    if (edgeDensity < 0.008) detail = edgeDensity / 0.008 * 0.55;
+    else if (edgeDensity <= 0.17) detail = 1;
+    else detail = clamp01(1 - (edgeDensity - 0.17) / 0.20);
+
+    const score = clamp01(uniformity * 0.44 + detail * 0.25 + contrast * 0.17 + paperLevel * 0.14);
+    return { score, uniformity, detail, contrast, paperLevel, edgeDensity };
+  } finally {
+    srcPts.delete(); dstPts.delete(); matrix.delete(); warped.delete(); background.delete(); fineBlur.delete(); edge.delete();
+  }
+}
+
 function findDocumentQuad(src) {
-  const maxDetectionSide = 1200;
+  const maxDetectionSide = 1100;
   const scale = Math.min(1, maxDetectionSide / Math.max(src.cols, src.rows));
   const small = new cv.Mat();
   const gray = new cv.Mat();
@@ -309,7 +472,7 @@ function findDocumentQuad(src) {
   const closed = new cv.Mat();
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
-  const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+  const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
 
   try {
     if (scale < 1) cv.resize(src, small, new cv.Size(Math.round(src.cols * scale), Math.round(src.rows * scale)), 0, 0, cv.INTER_AREA);
@@ -317,37 +480,73 @@ function findDocumentQuad(src) {
     cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
     const metrics = Core.analyzeGrayPixels(gray.data, gray.cols, gray.rows);
     const median = metrics.p50 || 128;
-    const low = Math.max(28, Math.round(median * 0.55));
-    const high = Math.min(220, Math.max(low + 35, Math.round(median * 1.35)));
+    const low = Math.max(22, Math.round(median * 0.48));
+    const high = Math.min(225, Math.max(low + 36, Math.round(median * 1.28)));
     cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
     cv.Canny(blur, edges, low, high);
-    cv.morphologyEx(edges, closed, cv.MORPH_CLOSE, kernel);
-    cv.dilate(closed, closed, kernel, new cv.Point(-1, -1), 1);
+    cv.morphologyEx(edges, closed, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 2);
     cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-    let best = null;
-    let bestScore = 0;
+    const candidates = [];
+    const minArea = small.cols * small.rows * 0.055;
+    const epsilons = [0.012, 0.018, 0.026, 0.034];
     for (let i = 0; i < contours.size(); i++) {
       const contour = contours.get(i);
       const area = Math.abs(cv.contourArea(contour));
-      if (area < small.cols * small.rows * 0.08) { contour.delete(); continue; }
+      if (area < minArea) { contour.delete(); continue; }
       const peri = cv.arcLength(contour, true);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(contour, approx, 0.018 * peri, true);
-      if (approx.rows === 4 && cv.isContourConvex(approx)) {
-        const pts = [];
-        for (let r = 0; r < 4; r++) pts.push({ x: approx.intPtr(r, 0)[0], y: approx.intPtr(r, 0)[1] });
-        const scoring = Core.scoreQuad(pts, small.cols, small.rows);
-        if (scoring.score > bestScore) {
-          bestScore = scoring.score;
-          best = pts.map(p => ({ x: p.x / scale, y: p.y / scale }));
+      let points = null;
+      for (const epsilon of epsilons) {
+        const approx = new cv.Mat();
+        cv.approxPolyDP(contour, approx, epsilon * peri, true);
+        if (approx.rows === 4 && cv.isContourConvex(approx)) {
+          points = [];
+          for (let r = 0; r < 4; r++) points.push({ x: approx.intPtr(r, 0)[0], y: approx.intPtr(r, 0)[1] });
+          approx.delete();
+          break;
+        }
+        approx.delete();
+      }
+      contour.delete();
+      if (!points) continue;
+      const geometry = Core.scoreQuad(points, small.cols, small.rows);
+      if (geometry.rectangularity < 0.58 || geometry.areaRatio < 0.055) continue;
+      candidates.push({ points, geometry, area: Core.polygonArea(points), appearance: null, nestedBoost: 0, finalScore: 0 });
+    }
+
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => b.geometry.score - a.geometry.score);
+    const shortlist = candidates.slice(0, 10);
+    shortlist.forEach(candidate => { candidate.appearance = candidateAppearanceScore(gray, candidate.points); });
+
+    for (const candidate of shortlist) {
+      const center = quadCentroid(candidate.points);
+      for (const outer of shortlist) {
+        if (outer === candidate || outer.area <= candidate.area * 1.12) continue;
+        const areaRatio = candidate.area / outer.area;
+        if (areaRatio < 0.18 || areaRatio > 0.92) continue;
+        const orderedOuter = Core.orderPoints(outer.points);
+        const outerPolygon = [orderedOuter.tl, orderedOuter.tr, orderedOuter.br, orderedOuter.bl];
+        if (!pointInPolygon(center, outerPolygon)) continue;
+        if (candidate.appearance.score > outer.appearance.score + 0.035) {
+          candidate.nestedBoost = Math.max(candidate.nestedBoost, 0.10);
         }
       }
-      approx.delete();
-      contour.delete();
+      candidate.finalScore = clamp01(
+        candidate.geometry.score * 0.50 +
+        candidate.appearance.score * 0.42 +
+        candidate.nestedBoost
+      );
     }
-    if (!best || bestScore < 0.42) return null;
-    return { quad: best, confidence: bestScore };
+
+    shortlist.sort((a, b) => b.finalScore - a.finalScore);
+    const best = shortlist[0];
+    if (!best || best.finalScore < 0.47) return null;
+    return {
+      quad: best.points.map(p => ({ x: p.x / scale, y: p.y / scale })),
+      confidence: best.finalScore,
+      diagnostics: { geometry: best.geometry.score, appearance: best.appearance.score, nested: best.nestedBoost }
+    };
   } finally {
     small.delete(); gray.delete(); blur.delete(); edges.delete(); closed.delete(); contours.delete(); hierarchy.delete(); kernel.delete();
   }
@@ -546,7 +745,8 @@ function processCaptureToEditor(source = 'manual') {
   try {
     lastCaptureQuality = measureQualityMat(src);
     const detected = findDocumentQuad(src);
-    const quad = detected ? detected.quad : fallbackQuad(src);
+    const liveFallback = lastCaptureNormalizedQuad ? denormalizeQuad(lastCaptureNormalizedQuad, src.cols, src.rows) : null;
+    const quad = detected ? detected.quad : (liveFallback || fallbackQuad(src));
     warped = warpDocument(src, quad);
     warpedCanvas.width = warped.cols;
     warpedCanvas.height = warped.rows;
@@ -561,7 +761,8 @@ function processCaptureToEditor(source = 'manual') {
     showScreen('editScreen');
 
     const warning = lastCaptureQuality.decision.warnings[0];
-    if (!detected) showToast('Border detection was uncertain — adjust the crop if needed.', 3000);
+    if (!detected && !liveFallback) showToast('Page boundary was uncertain — adjust the crop if needed.', 3000);
+    else if (!detected && liveFallback) showToast('Using the page boundary tracked before capture.', 2400);
     else if (warning) showToast(warning, 2800);
     else showToast(source === 'auto' ? 'Captured automatically' : 'Page detected and cleaned');
   } finally {

@@ -89,7 +89,9 @@
   }
 
   function scoreQuad(points, imageWidth, imageHeight) {
-    if (!Array.isArray(points) || points.length !== 4 || !imageWidth || !imageHeight) return { score: 0, areaRatio: 0, rectangularity: 0 };
+    if (!Array.isArray(points) || points.length !== 4 || !imageWidth || !imageHeight) {
+      return { score: 0, areaRatio: 0, rectangularity: 0, ratio: 0, centerScore: 0, marginScore: 0 };
+    }
     const p = orderPoints(points);
     const ordered = [p.tl, p.tr, p.br, p.bl];
     const areaRatio = polygonArea(ordered) / (imageWidth * imageHeight);
@@ -103,10 +105,50 @@
     const width = (distance(p.tl, p.tr) + distance(p.bl, p.br)) / 2;
     const height = (distance(p.tl, p.bl) + distance(p.tr, p.br)) / 2;
     const ratio = Math.max(width, height) / Math.max(1, Math.min(width, height));
-    const ratioScore = ratio > 5.5 ? 0 : ratio > 4 ? 0.45 : 1;
-    const areaScore = Math.max(0, Math.min(1, (areaRatio - 0.08) / 0.62));
-    const score = Math.max(0, Math.min(1, areaScore * 0.56 + rectangularity * 0.34 + ratioScore * 0.10));
-    return { score, areaRatio, rectangularity, ratio };
+    const ratioScore = ratio > 6.5 ? 0 : ratio > 4.8 ? 0.35 : ratio > 3.5 ? 0.72 : 1;
+
+    // Large is useful, but "largest rectangle wins" is deliberately avoided.
+    // A page occupying roughly 22-88% of the visible preview receives full credit;
+    // candidates that nearly fill the sensor frame are penalized because they are
+    // frequently desks, folders, backing sheets or screen edges.
+    let areaScore = 0;
+    if (areaRatio >= 0.22 && areaRatio <= 0.88) areaScore = 1;
+    else if (areaRatio < 0.22) areaScore = Math.max(0, areaRatio / 0.22);
+    else areaScore = Math.max(0.35, 1 - (areaRatio - 0.88) / 0.12 * 0.65);
+
+    const cx = ordered.reduce((sum, q) => sum + q.x, 0) / 4;
+    const cy = ordered.reduce((sum, q) => sum + q.y, 0) / 4;
+    const dx = Math.abs(cx - imageWidth / 2) / (imageWidth / 2);
+    const dy = Math.abs(cy - imageHeight / 2) / (imageHeight / 2);
+    const centerScore = Math.max(0, 1 - Math.hypot(dx, dy) / 1.2);
+
+    const minMargin = Math.min(...ordered.map(q => Math.min(q.x, imageWidth - q.x, q.y, imageHeight - q.y)));
+    const marginRatio = minMargin / Math.max(1, Math.min(imageWidth, imageHeight));
+    const marginScore = Math.max(0, Math.min(1, marginRatio / 0.035));
+
+    const score = Math.max(0, Math.min(1,
+      rectangularity * 0.40 +
+      areaScore * 0.22 +
+      ratioScore * 0.10 +
+      centerScore * 0.16 +
+      marginScore * 0.12
+    ));
+    return { score, areaRatio, rectangularity, ratio, centerScore, marginScore };
+  }
+
+  function coverCrop(sourceWidth, sourceHeight, viewWidth, viewHeight) {
+    const sw = Math.max(1, Number(sourceWidth) || 1);
+    const sh = Math.max(1, Number(sourceHeight) || 1);
+    const vw = Math.max(1, Number(viewWidth) || 1);
+    const vh = Math.max(1, Number(viewHeight) || 1);
+    const sourceAspect = sw / sh;
+    const viewAspect = vw / vh;
+    if (sourceAspect > viewAspect) {
+      const width = sh * viewAspect;
+      return { x: (sw - width) / 2, y: 0, width, height: sh };
+    }
+    const height = sw / viewAspect;
+    return { x: 0, y: (sh - height) / 2, width: sw, height };
   }
 
   function percentileFromHistogram(histogram, percentile, total) {
@@ -293,6 +335,7 @@
     polygonArea,
     orderPoints,
     scoreQuad,
+    coverCrop,
     analyzeGrayPixels,
     qualityDecision,
     pageGeometry,

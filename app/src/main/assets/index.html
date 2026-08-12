@@ -67,9 +67,10 @@
 
       <div class="camera-shade"></div>
       <svg id="guide" class="document-guide" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <polygon id="guidePolygon" points="8,15 92,15 92,70 8,70"></polygon>
+        <path id="guideMaskPath" class="guide-mask" fill-rule="evenodd" d="M0 0H100V100H0Z"></path>
+        <polygon id="guidePolygon" points="8,18 92,18 92,72 8,72"></polygon>
       </svg>
-      <div id="cameraEmpty" class="camera-empty">Camera is starting…</div>
+      <div id="cameraEmpty" class="camera-empty" hidden>Starting camera…</div>
 
       <div class="camera-topbar safe-top">
         <button class="camera-icon-btn" id="closeCameraBtn" aria-label="Close camera">×</button>

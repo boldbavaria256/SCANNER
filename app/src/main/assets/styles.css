@@ -65,29 +65,27 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .recent-copy span, .recent-copy small { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; }
 .recent-more { font-size: 22px; color: #69787e; }
 
-.camera-screen { background: #090b0b; color: #fff; }
-.camera-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #0c0e0e; }
-.camera-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.42), transparent 20%, transparent 66%, rgba(0,0,0,.7)); pointer-events: none; }
-.camera-topbar { position: absolute; inset: 0 0 auto; height: calc(72px + env(safe-area-inset-top)); display: grid; grid-template-columns: 54px 1fr 54px; align-items: center; padding-left: 12px; padding-right: 12px; z-index: 4; }
-.camera-icon-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 30px; background: rgba(16,20,20,.28); backdrop-filter: blur(4px); }
-.auto-chip { justify-self: center; color: #fff; font-size: 13px; font-weight: 700; padding: 9px 13px; border-radius: 999px; background: rgba(16,20,20,.28); backdrop-filter: blur(4px); }
-.document-guide { position: absolute; left: 8%; right: 8%; top: 15%; bottom: 30%; border: 2px solid #24d2bf; box-shadow: 0 0 0 9999px rgba(0,0,0,.08), 0 0 12px rgba(36,210,191,.35); border-radius: 4px; pointer-events: none; transition: opacity .2s; }
-.corner { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid #24c7b5; }
-.corner.tl { left: -9px; top: -9px; }.corner.tr { right: -9px; top: -9px; }.corner.br { right: -9px; bottom: -9px; }.corner.bl { left: -9px; bottom: -9px; }
-.camera-empty { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,.72); font-size: 13px; }
-.camera-bottom { position: absolute; inset: auto 0 0; z-index: 4; padding-left: 22px; padding-right: 22px; padding-top: 10px; background: linear-gradient(to top, rgba(7,9,9,.92), rgba(7,9,9,.38), transparent); }
-.camera-hint { text-align: center; font-size: 12px; color: rgba(255,255,255,.78); margin-bottom: 10px; min-height: 16px; }
-.capture-row { display: grid; grid-template-columns: 58px 1fr 58px; align-items: center; gap: 22px; }
-.round-tool { width: 52px; height: 52px; border-radius: 50%; background: rgba(8,12,12,.75); color: #fff; display: grid; place-items: center; position: relative; justify-self: center; border: 1px solid rgba(255,255,255,.16); }
-.round-tool svg { width: 25px; height: 25px; }
-.round-tool small { position: absolute; right: 8px; bottom: 6px; font-size: 9px; font-weight: 800; }
-.shutter { width: 76px; height: 76px; border-radius: 50%; justify-self: center; border: 4px solid #fff; box-shadow: 0 0 0 3px var(--teal); padding: 6px; }
-.shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; }
-.shutter:active span { transform: scale(.91); }
-.mode-switch { width: min(270px, 76%); height: 44px; margin: 16px auto 5px; padding: 3px; border-radius: 999px; display: grid; grid-template-columns: 1fr 1fr; background: rgba(18,21,21,.84); border: 1px solid rgba(255,255,255,.28); }
-.mode-option { color: #fff; border-radius: 999px; font-size: 13px; font-weight: 750; }
-.mode-option.active { background: var(--teal); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
-.finish-multi { display: block; margin: 8px auto 0; padding: 8px 14px; border-radius: 999px; color: #fff; font-size: 12px; background: rgba(7,139,125,.82); }
+.camera-screen { background: #060808; color: #fff; }
+.camera-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #050707; }
+.camera-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.30), transparent 15%, transparent 70%, rgba(0,0,0,.64)); pointer-events: none; }
+.camera-topbar { position: absolute; inset: 0 0 auto; height: calc(70px + env(safe-area-inset-top)); display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; padding-left: 14px; padding-right: 14px; z-index: 5; }
+.camera-icon-btn { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 27px; background: rgba(8,12,12,.38); border: 1px solid rgba(255,255,255,.13); backdrop-filter: blur(8px); }
+.auto-chip { justify-self: center; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: .15px; padding: 8px 12px; border-radius: 999px; background: rgba(8,12,12,.40); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(8px); }
+.camera-empty { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; color: rgba(255,255,255,.82); font-size: 13px; background: #080b0b; }
+.camera-empty[hidden] { display: none !important; }
+.camera-bottom { position: absolute; inset: auto 0 0; z-index: 5; padding-left: 22px; padding-right: 22px; padding-top: 28px; background: linear-gradient(to top, rgba(5,7,7,.96) 0%, rgba(5,7,7,.68) 55%, transparent 100%); }
+.camera-hint { width: fit-content; max-width: calc(100% - 24px); margin: 0 auto 12px; padding: 7px 11px; border-radius: 999px; text-align: center; font-size: 11.5px; font-weight: 650; color: rgba(255,255,255,.91); background: rgba(5,8,8,.42); backdrop-filter: blur(5px); min-height: 28px; }
+.capture-row { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 20px; }
+.round-tool { width: 50px; height: 50px; border-radius: 50%; background: rgba(8,12,12,.68); color: #fff; display: grid; place-items: center; position: relative; justify-self: center; border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(6px); }
+.round-tool svg { width: 23px; height: 23px; }
+.round-tool small { position: absolute; right: 7px; bottom: 5px; font-size: 8px; font-weight: 900; }
+.shutter { width: 74px; height: 74px; border-radius: 50%; justify-self: center; border: 3px solid rgba(255,255,255,.98); box-shadow: 0 0 0 2px rgba(36,210,191,.95), 0 4px 18px rgba(0,0,0,.30); padding: 6px; }
+.shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; transition: transform .10s ease; }
+.shutter:active span { transform: scale(.88); }
+.mode-switch { width: min(246px, 72%); height: 38px; margin: 14px auto 4px; padding: 3px; border-radius: 999px; display: grid; grid-template-columns: 1fr 1fr; background: rgba(7,10,10,.64); border: 1px solid rgba(255,255,255,.14); }
+.mode-option { color: rgba(255,255,255,.86); border-radius: 999px; font-size: 12px; font-weight: 800; }
+.mode-option.active { background: var(--teal); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.16); }
+.finish-multi { display: block; margin: 7px auto 0; padding: 7px 13px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 750; background: rgba(7,139,125,.86); }
 
 .edit-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .edit-preview { flex: 1; min-height: 260px; padding: 16px 18px 8px; display: grid; place-items: center; overflow: hidden; }
@@ -165,10 +163,11 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 }
 
 /* Production interaction states */
-.document-guide { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; opacity:.72; transition:opacity .15s ease; }
-.document-guide polygon { fill:rgba(7,139,125,.035); stroke:#24d2bf; stroke-width:2.2; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 4px rgba(36,210,191,.28)); }
-.document-guide.detected { opacity:1; }
-.document-guide.good polygon { stroke:#4ce4b1; }
+.document-guide { position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; }
+.document-guide .guide-mask { fill:rgba(0,0,0,.34); opacity:0; transition:opacity .14s ease; }
+.document-guide polygon { fill:rgba(7,139,125,.025); stroke:#32dcc8; stroke-width:2.35; vector-effect:non-scaling-stroke; filter:drop-shadow(0 0 4px rgba(36,210,191,.32)); opacity:0; transition:opacity .12s ease, stroke .12s ease; }
+.document-guide.detected .guide-mask, .document-guide.detected polygon { opacity:1; }
+.document-guide.good polygon { stroke:#53e2ad; }
 .document-guide.warning polygon { stroke:#ffd36a; }
 .crop-frame { pointer-events:auto; }
 .crop-handle { pointer-events:auto; touch-action:none; cursor:grab; }
